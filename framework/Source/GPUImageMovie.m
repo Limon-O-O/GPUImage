@@ -164,22 +164,19 @@
         [self processPlayerItem];
         return;
     }
-    if(self.url == nil)
-    {
-      [self processAsset];
-      return;
-    }
-    
+
     if (_shouldRepeat) keepLooping = YES;
-    
+
     previousFrameTime = kCMTimeZero;
     previousActualFrameTime = CFAbsoluteTimeGetCurrent();
-  
+
     NSDictionary *inputOptions = [NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:AVURLAssetPreferPreciseDurationAndTimingKey];
-    AVURLAsset *inputAsset = [[AVURLAsset alloc] initWithURL:self.url options:inputOptions];
-    
+
+#pragma mark - Limon
+    AVURLAsset *inputAsset = self.asset == nil ? [[AVURLAsset alloc] initWithURL:self.url options:inputOptions] : self.asset;
+
     GPUImageMovie __block *blockSelf = self;
-    
+
     [inputAsset loadValuesAsynchronouslyForKeys:[NSArray arrayWithObject:@"tracks"] completionHandler: ^{
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             NSError *error = nil;
