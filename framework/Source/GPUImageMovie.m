@@ -143,6 +143,11 @@
 {
     [playerItemOutput setDelegate:nil queue:nil];
 
+    if (audioPlayer != nil) {
+        [audioPlayer pause];
+        audioPlayer = nil;
+    }
+
     // Moved into endProcessing
     //if (self.playerItem && (displayLink != nil))
     //{
