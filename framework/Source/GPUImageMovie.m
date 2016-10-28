@@ -6,7 +6,7 @@
 
 @interface GPUImageMovie () <AVPlayerItemOutputPullDelegate>
 {
-    BOOL audioEncodingIsFinished, videoEncodingIsFinished;
+    BOOL audioEncodingIsFinished, videoEncodingIsFinished, hasAudioTrack;
     GPUImageMovieWriter *synchronizedMovieWriter;
     AVAssetReader *reader;
     AVPlayerItemVideoOutput *playerItemOutput;
@@ -30,6 +30,8 @@
     BOOL isFullYUVRange;
 
     int imageBufferWidth, imageBufferHeight;
+
+    AVAudioPlayer *audioPlayer;
 }
 
 - (void)processAsset;
@@ -160,7 +162,8 @@
 
 - (void)startProcessing
 {
-    if( self.playerItem ) {
+
+    if(self.playerItem) {
         [self processPlayerItem];
         return;
     }
@@ -173,7 +176,12 @@
     NSDictionary *inputOptions = [NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:AVURLAssetPreferPreciseDurationAndTimingKey];
 
 #pragma mark - Limon
-    AVURLAsset *inputAsset = self.asset == nil ? [[AVURLAsset alloc] initWithURL:self.url options:inputOptions] : self.asset;
+    AVAsset *inputAsset = self.asset == nil ? [[AVURLAsset alloc] initWithURL:self.url options:inputOptions] : self.asset;
+
+    if (self.playSound && audioPlayer == nil)
+    {
+        [self setupSound];
+    }
 
     GPUImageMovie __block *blockSelf = self;
 
@@ -190,6 +198,17 @@
             blockSelf = nil;
         });
     }];
+}
+
+- (void)setupSound {
+    NSError *error;
+    audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:self.url error:&error];
+
+    if (error) {
+        NSLog(@"Failed to initialise sound with error:%@",error);
+    } else {
+        [audioPlayer prepareToPlay];
+    }
 }
 
 - (AVAssetReader*)createAssetReader
@@ -214,6 +233,7 @@
 
     NSArray *audioTracks = [self.asset tracksWithMediaType:AVMediaTypeAudio];
     BOOL shouldRecordAudioTrack = (([audioTracks count] > 0) && (self.audioEncodingTarget != nil) );
+    hasAudioTrack = [audioTracks count] > 0;
     AVAssetReaderTrackOutput *readerAudioTrackOutput = nil;
 
     if (shouldRecordAudioTrack)
@@ -254,8 +274,14 @@
 
     if ([reader startReading] == NO) 
     {
-            NSLog(@"Error reading from file at URL: %@", self.url);
+        NSLog(@"Error reading from file at URL: %@", self.url);
         return;
+    }
+
+    if (self.playSound && hasAudioTrack)
+    {
+        [audioPlayer setCurrentTime:0.0];
+        [audioPlayer play];
     }
 
     __unsafe_unretained GPUImageMovie *weakSelf = self;
@@ -285,11 +311,10 @@
         {
                 [weakSelf readNextVideoFrameFromOutput:readerVideoTrackOutput];
 
-            if ( (readerAudioTrackOutput) && (!audioEncodingIsFinished) )
+            if ((readerAudioTrackOutput) && (!audioEncodingIsFinished))
             {
-                    [weakSelf readNextAudioSampleFromOutput:readerAudioTrackOutput];
+                [weakSelf readNextAudioSampleFromOutput:readerAudioTrackOutput];
             }
-
         }
 
         if (reader.status == AVAssetReaderStatusCompleted) {
@@ -416,17 +441,18 @@ static CVReturn renderCallback(CVDisplayLinkRef displayLink,
         CMSampleBufferRef sampleBufferRef = [readerVideoTrackOutput copyNextSampleBuffer];
         if (sampleBufferRef) 
         {
-            //NSLog(@"read a video frame: %@", CFBridgingRelease(CMTimeCopyDescription(kCFAllocatorDefault, CMSampleBufferGetOutputPresentationTimeStamp(sampleBufferRef))));
+
+            // Do this outside of the video processing queue to not slow that down while waiting
+            CMTime currentSampleTime = CMSampleBufferGetOutputPresentationTimeStamp(sampleBufferRef);
+
             if (_playAtActualSpeed)
             {
-                // Do this outside of the video processing queue to not slow that down while waiting
-                CMTime currentSampleTime = CMSampleBufferGetOutputPresentationTimeStamp(sampleBufferRef);
                 CMTime differenceFromLastFrame = CMTimeSubtract(currentSampleTime, previousFrameTime);
                 CFAbsoluteTime currentActualTime = CFAbsoluteTimeGetCurrent();
                 
                 CGFloat frameTimeDifference = CMTimeGetSeconds(differenceFromLastFrame);
                 CGFloat actualTimeDifference = currentActualTime - previousActualFrameTime;
-                
+
                 if (frameTimeDifference > actualTimeDifference)
                 {
                     usleep(1000000.0 * (frameTimeDifference - actualTimeDifference));
@@ -803,6 +829,11 @@ static CVReturn renderCallback(CVDisplayLinkRef displayLink,
         CVDisplayLinkStop(displayLink);
         displayLink = NULL;
 #endif
+    }
+
+    if (audioPlayer != nil)
+    {
+        [audioPlayer stop];
     }
 
     if ([self.delegate respondsToSelector:@selector(didCompletePlayingMovie)]) {

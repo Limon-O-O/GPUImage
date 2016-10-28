@@ -30,6 +30,10 @@
  */
 @property(readwrite, nonatomic) BOOL shouldRepeat;
 
+/** This determines whether audio should be played. Cann't be set to work with video writing. Defaults to NO.
+ */
+@property(readwrite, nonatomic) BOOL playSound;
+
 /** This specifies the progress of the process on a scale from 0 to 1.0. A value of 0 means the process has not yet begun, A value of 1.0 means the conversaion is complete.
     This property is not key-value observable.
  */
