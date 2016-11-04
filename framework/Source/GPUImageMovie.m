@@ -214,8 +214,17 @@
 
     if (audioPlayer.error) {
         NSLog(@"Failed to initialise sound with error:%@",error);
+    }
+}
+
+- (void)setPlaySound:(BOOL)playSound {
+    _playSound = playSound;
+    if (playSound) {
+        [audioPlayer play];
     } else {
-        //        [audioPlayer prepareToPlay];
+        if (audioPlayer != nil) {
+            [audioPlayer pause];
+        }
     }
 }
 
@@ -841,7 +850,6 @@ static CVReturn renderCallback(CVDisplayLinkRef displayLink,
 
     if (audioPlayer != nil)
     {
-        //        [audioPlayer stop];
         [audioPlayer pause];
     }
 
