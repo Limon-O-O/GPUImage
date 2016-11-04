@@ -220,6 +220,7 @@
 - (void)setPlaySound:(BOOL)playSound {
     _playSound = playSound;
     if (playSound) {
+        [audioPlayer seekToTime: previousFrameTime];
         [audioPlayer play];
     } else {
         if (audioPlayer != nil) {
