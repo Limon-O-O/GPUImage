@@ -622,15 +622,17 @@
 
         if ([GPUImageContext supportsFastTextureUpload])
         {
+            // 加了滤镜之后，释放会 crash 在此，暂时方案
             if (renderTexture)
             {
-                CFRelease(renderTexture);
+                renderTexture = NULL;
+                //                CFRelease(renderTexture);
             }
             if (renderTarget)
             {
-                CVPixelBufferRelease(renderTarget);
+                renderTarget = NULL;
+                //                CVPixelBufferRelease(renderTarget);
             }
-
         }
     });
 }
