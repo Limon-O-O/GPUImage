@@ -18,6 +18,7 @@
     CMTime previousFrameTime, processingFrameTime;
     CFAbsoluteTime previousActualFrameTime;
     BOOL keepLooping;
+    BOOL didStart;
 
     GLuint luminanceTexture, chrominanceTexture;
 
@@ -249,25 +250,29 @@
     readerVideoTrackOutput.alwaysCopiesSampleData = NO;
     [assetReader addOutput:readerVideoTrackOutput];
 
-    NSArray *audioTracks = [self.asset tracksWithMediaType:AVMediaTypeAudio];
-    BOOL shouldRecordAudioTrack = (([audioTracks count] > 0) && (self.audioEncodingTarget != nil) );
-    hasAudioTrack = [audioTracks count] > 0;
-    AVAssetReaderTrackOutput *readerAudioTrackOutput = nil;
+    if (_processAudioTrack) {
 
-    if (shouldRecordAudioTrack)
-    {
+        NSArray *audioTracks = [self.asset tracksWithMediaType:AVMediaTypeAudio];
+        BOOL shouldRecordAudioTrack = (([audioTracks count] > 0) && (self.audioEncodingTarget != nil) );
+        hasAudioTrack = [audioTracks count] > 0;
+        AVAssetReaderTrackOutput *readerAudioTrackOutput = nil;
+
+        if (shouldRecordAudioTrack)
+        {
 #if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
-        [self.audioEncodingTarget setShouldInvalidateAudioSampleWhenDone:YES];
+            [self.audioEncodingTarget setShouldInvalidateAudioSampleWhenDone:YES];
 #else
 #warning Missing OSX implementation
 #endif
 
-        // This might need to be extended to handle movies with more than one audio track
-        AVAssetTrack* audioTrack = [audioTracks objectAtIndex:0];
-        readerAudioTrackOutput = [AVAssetReaderTrackOutput assetReaderTrackOutputWithTrack:audioTrack outputSettings:nil];
-        readerAudioTrackOutput.alwaysCopiesSampleData = NO;
-        [assetReader addOutput:readerAudioTrackOutput];
+            // This might need to be extended to handle movies with more than one audio track
+            AVAssetTrack* audioTrack = [audioTracks objectAtIndex:0];
+            readerAudioTrackOutput = [AVAssetReaderTrackOutput assetReaderTrackOutputWithTrack:audioTrack outputSettings:nil];
+            readerAudioTrackOutput.alwaysCopiesSampleData = NO;
+            [assetReader addOutput:readerAudioTrackOutput];
+        }
     }
+
 
     return assetReader;
 }
@@ -342,6 +347,12 @@
             if (keepLooping) {
                 reader = nil;
                 dispatch_async(dispatch_get_main_queue(), ^{
+
+                    didStart = NO;
+                    if ([self.delegate respondsToSelector:@selector(didCompletePlayingMovie)]) {
+                        [self.delegate didCompletePlayingMovie];
+                    }
+
                     [self startProcessing];
                 });
             } else {
@@ -483,6 +494,14 @@ static CVReturn renderCallback(CVDisplayLinkRef displayLink,
             __unsafe_unretained GPUImageMovie *weakSelf = self;
             runSynchronouslyOnVideoProcessingQueue(^{
                 [weakSelf processMovieFrame:sampleBufferRef];
+
+                if (!weakSelf->didStart) {
+                    weakSelf->didStart = YES;
+                    if ([weakSelf.delegate respondsToSelector:@selector(didStartPlayingMovie)]) {
+                        [weakSelf.delegate didStartPlayingMovie];
+                    }
+                }
+
                 CMSampleBufferInvalidate(sampleBufferRef);
                 CFRelease(sampleBufferRef);
             });
@@ -814,6 +833,7 @@ static CVReturn renderCallback(CVDisplayLinkRef displayLink,
 
 - (void)endProcessing;
 {
+    didStart = NO;
     keepLooping = NO;
 #if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
     [displayLink setPaused:YES];
