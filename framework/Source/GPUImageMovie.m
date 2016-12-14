@@ -250,29 +250,25 @@
     readerVideoTrackOutput.alwaysCopiesSampleData = NO;
     [assetReader addOutput:readerVideoTrackOutput];
 
-    if (_processAudioTrack) {
+    NSArray *audioTracks = [self.asset tracksWithMediaType:AVMediaTypeAudio];
+    BOOL shouldRecordAudioTrack = (([audioTracks count] > 0) && (self.audioEncodingTarget != nil) );
+    hasAudioTrack = [audioTracks count] > 0;
+    AVAssetReaderTrackOutput *readerAudioTrackOutput = nil;
 
-        NSArray *audioTracks = [self.asset tracksWithMediaType:AVMediaTypeAudio];
-        BOOL shouldRecordAudioTrack = (([audioTracks count] > 0) && (self.audioEncodingTarget != nil) );
-        hasAudioTrack = [audioTracks count] > 0;
-        AVAssetReaderTrackOutput *readerAudioTrackOutput = nil;
-
-        if (shouldRecordAudioTrack)
-        {
+    if (shouldRecordAudioTrack)
+    {
 #if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
-            [self.audioEncodingTarget setShouldInvalidateAudioSampleWhenDone:YES];
+        [self.audioEncodingTarget setShouldInvalidateAudioSampleWhenDone:YES];
 #else
 #warning Missing OSX implementation
 #endif
 
-            // This might need to be extended to handle movies with more than one audio track
-            AVAssetTrack* audioTrack = [audioTracks objectAtIndex:0];
-            readerAudioTrackOutput = [AVAssetReaderTrackOutput assetReaderTrackOutputWithTrack:audioTrack outputSettings:nil];
-            readerAudioTrackOutput.alwaysCopiesSampleData = NO;
-            [assetReader addOutput:readerAudioTrackOutput];
-        }
+        // This might need to be extended to handle movies with more than one audio track
+        AVAssetTrack* audioTrack = [audioTracks objectAtIndex:0];
+        readerAudioTrackOutput = [AVAssetReaderTrackOutput assetReaderTrackOutputWithTrack:audioTrack outputSettings:nil];
+        readerAudioTrackOutput.alwaysCopiesSampleData = NO;
+        [assetReader addOutput:readerAudioTrackOutput];
     }
-
 
     return assetReader;
 }
