@@ -245,8 +245,16 @@
         isFullYUVRange = NO;
     }
 
+    AVAssetReaderOutput *readerVideoTrackOutput = nil;
+
+    if (self.videoComposition) {
+        readerVideoTrackOutput = [AVAssetReaderVideoCompositionOutput assetReaderVideoCompositionOutputWithVideoTracks:[self.asset tracksWithMediaType:AVMediaTypeVideo] videoSettings:outputSettings];
+        ((AVAssetReaderVideoCompositionOutput*) readerVideoTrackOutput).videoComposition = self.videoComposition;
+    } else {
+        readerVideoTrackOutput = [AVAssetReaderTrackOutput assetReaderTrackOutputWithTrack:[[self.asset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0] outputSettings:outputSettings];
+    }
+
     // Maybe set alwaysCopiesSampleData to NO on iOS 5.0 for faster video decoding
-    AVAssetReaderTrackOutput *readerVideoTrackOutput = [AVAssetReaderTrackOutput assetReaderTrackOutputWithTrack:[[self.asset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0] outputSettings:outputSettings];
     readerVideoTrackOutput.alwaysCopiesSampleData = NO;
     [assetReader addOutput:readerVideoTrackOutput];
 
